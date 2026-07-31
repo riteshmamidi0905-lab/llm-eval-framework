@@ -1,0 +1,156 @@
+"""Generate reports from an EvalResult.
+
+- ``to_json`` / ``write_json`` — machine-readable results for CI or dashboards.
+- ``write_html_report`` — a self-contained, interactive HTML dashboard (no
+  external dependencies) with summary cards, a per-criterion bar chart, and a
+  filterable per-case table. Open it in a browser or embed it in a CI artifact.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+from pathlib import Path
+from typing import Any, Dict, Union
+
+from .evaluator import EvalResult
+
+
+def to_json(result: EvalResult) -> Dict[str, Any]:
+    return {
+        "summary": result.summary(),
+        "cases": [
+            {
+                "case_id": r.case_id,
+                "aggregate": round(r.aggregate, 4),
+                "passed": r.passed,
+                "metadata": r.metadata,
+                "criteria": [
+                    {"name": c.name, "score": round(c.score, 4),
+                     "weight": round(c.weight, 4), "passed": c.passed}
+                    for c in r.criteria
+                ],
+            }
+            for r in result.case_results
+        ],
+    }
+
+
+def write_json(result: EvalResult, path: Union[str, Path]) -> Path:
+    path = Path(path)
+    path.write_text(json.dumps(to_json(result), indent=2), encoding="utf-8")
+    return path
+
+
+_TEMPLATE = """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg:#0f1220; --panel:#181c2e; --ink:#e7e9f3; --muted:#9aa0b5;
+    --line:#272c42; --good:#3ecf8e; --bad:#ef6461; --accent:#6ea8fe;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f7fb; --panel:#fff; --ink:#1a1d29; --muted:#606780;
+            --line:#e6e8f0; --good:#12a668; --bad:#d64545; --accent:#3b6fd4; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:1000px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; } .sub { color:var(--muted); margin:0 0 24px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:28px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .card .k { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+  .card .v { font-size:26px; font-weight:650; margin-top:6px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:24px; }
+  .panel h2 { font-size:15px; margin:0 0 14px; }
+  .bar-row { display:grid; grid-template-columns:150px 1fr 52px; align-items:center; gap:10px; margin:9px 0; }
+  .bar-track { background:var(--line); border-radius:8px; height:16px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:8px; background:linear-gradient(90deg,var(--accent),var(--good)); }
+  .name { color:var(--muted); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .val { text-align:right; font-variant-numeric:tabular-nums; font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td { text-align:left; padding:9px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; cursor:pointer; user-select:none; }
+  .badge { padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .pass { background:color-mix(in srgb,var(--good) 18%,transparent); color:var(--good); }
+  .fail { background:color-mix(in srgb,var(--bad) 18%,transparent); color:var(--bad); }
+  .controls { display:flex; gap:8px; margin-bottom:12px; }
+  .controls button { background:var(--panel); color:var(--ink); border:1px solid var(--line);
+    border-radius:9px; padding:6px 12px; cursor:pointer; font-size:13px; }
+  .controls button.active { border-color:var(--accent); color:var(--accent); }
+  .mini { font-variant-numeric:tabular-nums; }
+</style></head>
+<body><div class="wrap">
+  <h1>__TITLE__</h1>
+  <p class="sub" id="sub"></p>
+  <div class="cards" id="cards"></div>
+  <div class="panel"><h2>Score by criterion (mean across cases)</h2><div id="bars"></div></div>
+  <div class="panel">
+    <h2>Cases</h2>
+    <div class="controls">
+      <button data-f="all" class="active">All</button>
+      <button data-f="pass">Passed</button>
+      <button data-f="fail">Failed</button>
+    </div>
+    <table><thead><tr><th data-s="case_id">Case</th><th data-s="aggregate">Score</th>
+      <th data-s="passed">Result</th><th>Breakdown</th></tr></thead>
+      <tbody id="rows"></tbody></table>
+  </div>
+</div>
+<script>
+const DATA = __DATA__;
+const s = DATA.summary, cases = DATA.cases;
+document.getElementById('sub').textContent =
+  `${s.rubric} · ${s.n_cases} cases · generated by llmeval`;
+const pct = x => (x*100).toFixed(1)+'%';
+const cards = [
+  ['Mean score', pct(s.mean_score)], ['Pass rate', pct(s.pass_rate)],
+  ['Cases', s.n_cases], ['Criteria', Object.keys(s.criterion_means).length],
+];
+document.getElementById('cards').innerHTML = cards.map(
+  ([k,v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+document.getElementById('bars').innerHTML = Object.entries(s.criterion_means)
+  .sort((a,b)=>a[1]-b[1]).map(([n,v]) =>
+   `<div class="bar-row"><div class="name" title="${n}">${n}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${(v*100).toFixed(1)}%"></div></div>
+    <div class="val mini">${v.toFixed(2)}</div></div>`).join('');
+let filter='all', sortKey='aggregate', asc=true;
+function render(){
+  let rows = cases.filter(c => filter==='all' || (filter==='pass')===c.passed);
+  rows.sort((a,b)=>{ let x=a[sortKey],y=b[sortKey];
+    if(typeof x==='string'){return asc?x.localeCompare(y):y.localeCompare(x);}
+    return asc?x-y:y-x; });
+  document.getElementById('rows').innerHTML = rows.map(c => {
+    const bd = c.criteria.map(k=>`${k.name} ${k.score.toFixed(2)}`+
+      (k.passed===false?' ✗':'')).join(' · ');
+    return `<tr><td>${c.case_id}</td><td class="mini">${c.aggregate.toFixed(3)}</td>
+      <td><span class="badge ${c.passed?'pass':'fail'}">${c.passed?'PASS':'FAIL'}</span></td>
+      <td class="name" title="${bd}">${bd}</td></tr>`; }).join('');
+}
+document.querySelectorAll('.controls button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.controls button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); filter=b.dataset.f; render(); });
+document.querySelectorAll('th[data-s]').forEach(h=>h.onclick=()=>{
+  const k=h.dataset.s; asc = sortKey===k ? !asc : true; sortKey=k; render(); });
+render();
+</script></body></html>"""
+
+
+def render_html(result: EvalResult, title: str = "LLM Evaluation Report") -> str:
+    data = json.dumps(to_json(result))
+    return (
+        _TEMPLATE
+        .replace("__TITLE__", html.escape(title))
+        .replace("__DATA__", data)
+    )
+
+
+def write_html_report(
+    result: EvalResult, path: Union[str, Path], title: str = "LLM Evaluation Report"
+) -> Path:
+    path = Path(path)
+    path.write_text(render_html(result, title), encoding="utf-8")
+    return path

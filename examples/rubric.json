@@ -1,0 +1,9 @@
+{
+  "name": "rag_qa_quality_v1",
+  "criteria": [
+    { "name": "faithfulness", "metric": "faithfulness", "weight": 0.4, "threshold": 0.5 },
+    { "name": "answer_overlap", "metric": "token_f1", "weight": 0.3 },
+    { "name": "structure", "metric": "rouge_l", "weight": 0.2 },
+    { "name": "no_spurious_refusal", "metric": "no_refusal", "weight": 0.1, "threshold": 1.0 }
+  ]
+}

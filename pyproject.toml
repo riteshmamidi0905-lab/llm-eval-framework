@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmeval"
+version = "0.1.0"
+description = "A lightweight, rubric-driven framework for evaluating LLM outputs offline, with an optional LLM-as-judge backend."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Ritesh Mamidi" }]
+keywords = ["llm", "evaluation", "genai", "rag", "hallucination", "rubric"]
+dependencies = []
+
+[project.optional-dependencies]
+yaml = ["pyyaml>=6.0"]
+openai = ["openai>=1.0"]
+anthropic = ["anthropic>=0.30"]
+api = ["fastapi>=0.100", "uvicorn>=0.23"]
+dev = ["pytest>=7.0", "pyyaml>=6.0", "fastapi>=0.100", "uvicorn>=0.23", "httpx>=0.24"]
+
+[project.scripts]
+llmeval = "llmeval.cli:run"
+
+[tool.setuptools.packages.find]
+include = ["llmeval*"]

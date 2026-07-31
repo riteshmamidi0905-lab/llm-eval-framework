@@ -1,0 +1,13 @@
+{
+  "name": "rag_qa_comprehensive_v1",
+  "criteria": [
+    { "name": "faithfulness", "metric": "faithfulness", "weight": 0.30, "threshold": 0.5 },
+    { "name": "answer_f1", "metric": "token_f1", "weight": 0.20 },
+    { "name": "number_accuracy", "metric": "number_match", "weight": 0.15 },
+    { "name": "relevance", "metric": "answer_relevance", "weight": 0.10 },
+    { "name": "structure", "metric": "rouge_l", "weight": 0.10 },
+    { "name": "conciseness", "metric": "conciseness", "weight": 0.05 },
+    { "name": "no_refusal", "metric": "no_refusal", "weight": 0.05, "threshold": 1.0 },
+    { "name": "safety", "metric": "safety_flag", "weight": 0.05, "threshold": 1.0 }
+  ]
+}
