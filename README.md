@@ -1,3 +1,5 @@
+> **▶ [Live demo](https://riteshmamidi0905-lab.github.io/demos/llm-eval-framework.html)** — the interactive evaluation dashboard (scores, per-criterion breakdown, case table) this project generates.
+
 # llmeval — LLM Output Evaluation Platform
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
