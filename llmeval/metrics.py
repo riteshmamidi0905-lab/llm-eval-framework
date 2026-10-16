@@ -74,6 +74,10 @@ def token_f1(case: EvalCase, drop_stopwords: bool = True, **_: object) -> float:
         return 0.0
     pred = Counter(_tokens(case.output, drop_stopwords))
     gold = Counter(_tokens(case.reference, drop_stopwords))
+    if drop_stopwords and not pred and not gold:
+        # Both sides are stop-words only (e.g. "the" vs "the"): fall back to the unfiltered tokens
+        # instead of scoring identical text 0.0.
+        pred = Counter(_tokens(case.output)); gold = Counter(_tokens(case.reference))
     if not pred or not gold:
         return 0.0
     overlap = sum((pred & gold).values())
@@ -209,16 +213,31 @@ def contains_answer(case: EvalCase, **_: object) -> float:
     return 0.0
 
 
+_NUM_RE = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
+
+
+def _numbers(text: str) -> set:
+    """Canonical numeric values in `text`: thousands separators are removed and trailing zeros
+    normalised, so '1,234.50' and '1234.5' are the same number and '1,234' is not read as 1 and 234."""
+    from decimal import Decimal, InvalidOperation
+    out = set()
+    for m in _NUM_RE.findall(text):
+        try:
+            out.add(str(Decimal(m.replace(",", "")).normalize()))
+        except InvalidOperation:
+            continue
+    return out
+
+
 @register("number_match")
 def number_match(case: EvalCase, **_: object) -> float:
     """Fraction of numbers in the reference that also appear in the output.
     Catches factual drift in figures (prices, dates, counts) that token overlap
     can miss."""
-    num_re = re.compile(r"-?\d+(?:\.\d+)?")
-    ref_nums = set(num_re.findall(case.reference or ""))
+    ref_nums = _numbers(case.reference or "")
     if not ref_nums:
         return 1.0
-    out_nums = set(num_re.findall(case.output or ""))
+    out_nums = _numbers(case.output or "")
     return _clamp(len(ref_nums & out_nums) / len(ref_nums))
 
 

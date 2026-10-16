@@ -3,7 +3,7 @@
 # llmeval — LLM Output Evaluation Platform
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![Tests](https://img.shields.io/badge/tests-33%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 A **rubric-driven platform for evaluating large language model outputs** —
@@ -35,7 +35,7 @@ cases (JSONL) → Rubric (weighted criteria) → Evaluator → Metrics / LLM jud
 - **LLM-as-judge** — score any criterion with a model via a vendor-neutral
   `chat(prompt) -> str` callable (OpenAI/Anthropic adapters included).
 - **Benchmark suite** — an 18-case RAG-QA benchmark with a per-category breakdown.
-- **Zero core dependencies**, 33 passing tests.
+- **Zero core dependencies**, 38 passing tests.
 
 ## Install
 
@@ -142,7 +142,7 @@ llmeval/
   cli.py         # `python -m llmeval.cli ... --html --fail-under`
 benchmarks/      # 18-case RAG-QA benchmark + runner (per-category breakdown)
 docs/            # architecture + metric reference
-examples/  tests/  (33 passing)
+examples/  tests/  (38 passing)
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) and

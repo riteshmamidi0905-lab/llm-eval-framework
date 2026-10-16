@@ -79,3 +79,38 @@ def test_all_metrics_return_unit_interval():
 def test_get_unknown_metric_raises():
     with pytest.raises(KeyError):
         metrics.get_metric("does_not_exist")
+
+
+# --- regression tests added by the verification pass (known-value checks) -----------------------
+from llmeval.cases import EvalCase as _EC
+from llmeval import metrics as _M
+
+
+def _c(out, ref=None, ctx=None):
+    return _EC(prompt="q", output=out, reference=ref, context=ctx)
+
+
+def test_token_f1_identical_stopword_only_text_scores_one():
+    assert _M.token_f1(_c("the", "the")) == 1.0            # was 0.0: both sides empty after stop-word removal
+    assert _M.token_f1(_c("", "the cat")) == 0.0
+
+
+def test_token_f1_known_value():
+    # tokens after stop-word removal: {cat, sat, mat} vs {cat, mat}: P=2/3, R=1, F1=0.8
+    assert abs(_M.token_f1(_c("the cat sat on the mat", "the cat is on the mat")) - 0.8) < 1e-9
+
+
+def test_rouge_l_known_value():
+    # LCS("the cat sat on the mat","the cat is on the mat") = 5 of 6 tokens each -> F1 = 5/6
+    assert abs(_M.rouge_l(_c("the cat sat on the mat", "the cat is on the mat")) - 5 / 6) < 1e-9
+
+
+def test_number_match_handles_thousands_separators_and_trailing_zeros():
+    assert _M.number_match(_c("revenue was 1,234.50", "1234.5")) == 1.0   # was 0.0
+    assert _M.number_match(_c("the count is 234", "the count is 1,234")) == 0.0   # '1,234' is not 1 and 234
+    assert _M.number_match(_c("about 3 items", "no numbers here")) == 1.0
+
+
+def test_bleu_two_gram_known_value():
+    # BLEU-2, no brevity penalty (candidate longer): sqrt((6/7)*(5/6))
+    assert abs(_M.bleu(_c("the cat sat on the mat today", "the cat sat on the mat")) - (6 / 7 * 5 / 6) ** 0.5) < 1e-9
